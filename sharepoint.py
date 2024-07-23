@@ -26,7 +26,7 @@ class EurokinSharePoint:
         return deliverables_list.GetListItems()
 
     def get_site_lists(self):
-        return self.GetListCollection()
+        return self.site.GetListCollection()
 
     def get_deliverable_path(self, id: int):
         deliverables_list = self.get_deliverables_list()
@@ -68,5 +68,9 @@ if __name__ == "__main__":
     deliverables = eurokin.get_deliverables_list()
     with open("deliverables.json", "wt") as json_file:
         json_file.write(json.dumps(deliverables, indent=4))
+
+    collections = eurokin.get_site_lists()
+    with open("collections.json", "wt") as json_file:
+        json_file.write(json.dumps(collections, indent=4))
 
     eurokin.download_deliverable(id=100, output_dir=deliverables_dir)
