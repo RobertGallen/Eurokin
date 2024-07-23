@@ -1,6 +1,7 @@
 from shareplum import Site
 from shareplum.site import Version
 from requests_ntlm import HttpNtlmAuth
+from pathlib import Path
 import requests
 import json
 
@@ -35,16 +36,37 @@ class EurokinSharePoint:
         url = self.get_deliverable_path(id)
         return requests.get(url=url, auth=self.cred)
 
+    def download_deliverable(self, id: int, output_dir: Path = None):
+        deliverables_list = self.get_deliverables_list()
+        file_name = deliverables_list[id]["Name"]
+        deliverable = self.request_deliverable(id)
+        if output_dir is None:
+            output_file = file_name
+        else:
+            output_file = output_dir / file_name
+        try:
+            with open(output_file, "wb") as f:
+                f.write(deliverable.content)
+        except FileNotFoundError:
+            output_dir.mkdir(parents=True, exist_ok=True)
+            output_file = output_dir / file_name
+            with open(output_file, "wb") as f:
+                f.write(deliverable.content)
+
+    def download_all_deliverables(self, output_dir: Path = None):
+        pass
+
 
 if __name__ == "__main__":
+    cwd = Path().cwd()
+    deliverables_dir = cwd / "Deliverables"
+
     with open("secrets.json") as secrets_file:
         secrets = json.load(secrets_file)
     eurokin = EurokinSharePoint(secrets)
 
     deliverables = eurokin.get_deliverables_list()
-    an_id = deliverables[3]["ID"]
-    item_path = eurokin.get_deliverable_path(100)
-    item = eurokin.request_deliverable(100)
-    with open("test.pdf", "wb") as f:
-        f.write(item.content)
-    print(item_path)
+    with open("deliverables.json", "wt") as json_file:
+        json_file.write(json.dumps(deliverables, indent=4))
+
+    eurokin.download_deliverable(id=100, output_dir=deliverables_dir)
