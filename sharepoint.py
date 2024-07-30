@@ -63,7 +63,8 @@ if __name__ == "__main__":
 
     with open("secrets.json") as secrets_file:
         secrets = json.load(secrets_file)
-    eurokin = EurokinSharePoint(secrets)
+    eurokin_secrets = secrets["eurokin"]
+    eurokin = EurokinSharePoint(eurokin_secrets)
 
     deliverables = eurokin.get_deliverables_list()
     with open("deliverables.json", "wt") as json_file:
