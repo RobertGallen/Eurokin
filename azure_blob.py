@@ -1,6 +1,10 @@
 from azure.storage.blob import BlobServiceClient
+from azure.core.exceptions import ResourceExistsError
+import logging
 from pathlib import Path
 import json, uuid
+
+logger = logging.getLogger(__name__)
 
 
 class azure_blob:
@@ -16,20 +20,32 @@ class azure_blob:
         return None
 
     def get_deliverables_container(self):
-        container_list = [
-            container.name for container in self.service_client.list_containers()
-        ]
-        if "deliverables" in set(container_list):
-            self.deliverables = self.service_client.get_container_client("deliverables")
+        if self.deliverables is not None:
+            pass
         else:
-            self.deliverables = self.service_client.create_container("deliverables")
+            container_list = [
+                container.name for container in self.service_client.list_containers()
+            ]
+            if "deliverables" in set(container_list):
+                self.deliverables = self.service_client.get_container_client(
+                    "deliverables"
+                )
+            else:
+                self.deliverables = self.service_client.create_container("deliverables")
 
     def upload_deliverable(self, file_path: Path):
-        if self.deliverables is None:
-            self.get_deliverables_container()
+        self.get_deliverables_container()
         blob_client = self.deliverables.get_blob_client(blob=file_path.name)
-        with open(file_path, "rb") as data:
-            blob_client.upload_blob(data)
+        try:
+            with open(file_path, "rb") as data:
+                blob_client.upload_blob(data)
+        except ResourceExistsError:
+            logger.info(file_path.name + " already uploaded, skipping")
+            pass
+
+    def get_uploaded_deliverables(self):
+        self.get_deliverables_container()
+        return [name for name in self.deliverables.list_blob_names()]
 
 
 if __name__ == "__main__":
@@ -44,5 +60,7 @@ if __name__ == "__main__":
 
     deliverables_list = cwd / "deliverables.json"
     eurokin_azure.upload_deliverable(deliverables_list)
+
+    transferred_items = eurokin_azure.get_uploaded_deliverables()
 
     assert False
