@@ -33,7 +33,7 @@ class azure_blob:
             else:
                 self.deliverables = self.service_client.create_container("deliverables")
 
-    def upload_deliverable(self, file_path: Path):
+    def upload_file(self, file_path: Path):
         self.get_deliverables_container()
         blob_client = self.deliverables.get_blob_client(blob=file_path.name)
         try:
@@ -41,6 +41,15 @@ class azure_blob:
                 blob_client.upload_blob(data)
         except ResourceExistsError:
             logger.info(file_path.name + " already uploaded, skipping")
+            pass
+
+    def upload_content(self, name: str, content: bytes):
+        self.get_deliverables_container()
+        blob_client = self.deliverables.get_blob_client(blob=name)
+        try:
+            blob_client.upload_blob(content)
+        except ResourceExistsError:
+            logger.info(name + " already uploaded, skipping")
             pass
 
     def get_uploaded_deliverables(self):
@@ -59,7 +68,7 @@ if __name__ == "__main__":
     eurokin_azure = azure_blob(azure_secrets)
 
     deliverables_list = cwd / "deliverables.json"
-    eurokin_azure.upload_deliverable(deliverables_list)
+    eurokin_azure.upload_file(deliverables_list)
 
     transferred_items = eurokin_azure.get_uploaded_deliverables()
 
