@@ -2,6 +2,9 @@ from shareplum import Site
 from shareplum.site import Version
 from requests_ntlm import HttpNtlmAuth
 from pathlib import Path
+from azure_blob import azure_blob
+import aiohttp
+import asyncio
 import requests
 import json
 
@@ -19,18 +22,27 @@ class EurokinSharePoint:
         self.cred = HttpNtlmAuth(USERNAME, PASSWORD)
         self.site = Site(SHAREPOINT_SITE, auth=self.cred, version=Version.v2007)
         self.site_url = SHAREPOINT_SITE
+        self.deliverables_list = None
         return None
 
-    def get_deliverables_list(self) -> dict:
-        deliverables_list = self.site.List("Deliverables_list")
-        return deliverables_list.GetListItems()
+    def get_deliverables_list(self) -> list:
+        if self.deliverables_list is None:
+            self.deliverables_list = self.site.List("Deliverables_list")
+        return self.deliverables_list.GetListItems()
+
+    def get_deliverables_name_list(self) -> list:
+        deliverables_list = self.get_deliverables_list()
+        deliverables_name_list = [d["Name"] for d in deliverables_list]
+        return deliverables_name_list
 
     def get_site_lists(self):
         return self.site.GetListCollection()
 
     def get_deliverable_path(self, id: int):
         deliverables_list = self.get_deliverables_list()
-        return self.site_url + deliverables[id]["URL Path"].split("misc/eurokin")[1]
+        return (
+            self.site_url + deliverables_list[id]["URL Path"].split("misc/eurokin")[1]
+        )
 
     def request_deliverable(self, id: int):
         url = self.get_deliverable_path(id)
@@ -53,7 +65,23 @@ class EurokinSharePoint:
             with open(output_file, "wb") as f:
                 f.write(deliverable.content)
 
-    def download_all_deliverables(self, output_dir: Path = None):
+    async def transfer_to_azure(
+        self, to_be_transferred: list, blob_storage: azure_blob
+    ):
+        deliverables_list = self.get_deliverables_list()
+        ids = []
+        for deliverable in deliverables_list:
+            if deliverable["Name"] in set(to_be_transferred):
+                ids.append(deliverable["id"])
+        async with aiohttp.ClientSession() as session:
+            for id in ids:
+                url = self.get_deliverable_path(id)
+                content_name = deliverables_list[id]["Name"]
+                async with session.get(url=url, auth=self.cred) as response:
+                    blob_storage.upload_content(
+                        name=content_name, content=response.content
+                    )
+
         pass
 
 
