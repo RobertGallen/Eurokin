@@ -2,7 +2,7 @@ from shareplum import Site
 from shareplum.site import Version
 from requests_ntlm import HttpNtlmAuth
 from pathlib import Path
-from azure_blob import azure_blob
+from azure_blob import AzureBlob
 import aiohttp
 import asyncio
 import requests

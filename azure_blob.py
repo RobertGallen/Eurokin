@@ -7,7 +7,7 @@ import json, uuid
 logger = logging.getLogger(__name__)
 
 
-class azure_blob:
+class AzureBlob:
     def __init__(self, secrets: dict) -> BlobServiceClient:
         if {"connect_string"} <= set(secrets):
             self.connect_string = secrets["connect_string"]
@@ -65,7 +65,7 @@ if __name__ == "__main__":
         secrets = json.load(secrets_file)
     azure_secrets = secrets["azure"]
 
-    eurokin_azure = azure_blob(azure_secrets)
+    eurokin_azure = AzureBlob(azure_secrets)
 
     deliverables_list = cwd / "deliverables.json"
     eurokin_azure.upload_file(deliverables_list)

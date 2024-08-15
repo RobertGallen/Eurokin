@@ -1,5 +1,5 @@
 from sharepoint import EurokinSharePoint
-from azure_blob import azure_blob
+from azure_blob import AzureBlob
 from pathlib import Path
 import json
 
@@ -12,7 +12,7 @@ eurokin_secrets = secrets["eurokin"]
 eurokin = EurokinSharePoint(secrets=eurokin_secrets)
 
 azure_secrets = secrets["azure"]
-eurokin_azure = azure_blob(secrets=azure_secrets)
+eurokin_azure = AzureBlob(secrets=azure_secrets)
 
 deliverables = eurokin.get_deliverables_name_list()
 already_transferred = eurokin_azure.get_uploaded_deliverables()
