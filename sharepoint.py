@@ -1,9 +1,10 @@
 from shareplum import Site
+from shareplum import List as ShareplumList
 from shareplum.site import Version
 from requests_ntlm import HttpNtlmAuth
 from pathlib import Path
 from azure_blob import AzureBlob
-import aiohttp
+from typing import List, Dict
 import asyncio
 import requests
 import json
@@ -11,7 +12,40 @@ import logging
 
 
 class EurokinSharePoint:
+    """
+    A class representing Eurokin SharePoint.
+
+    Args:
+        secrets (dict): A dictionary containing the secrets required for authentication.
+            It must contain the keys "USERNAME", "PASSWORD", and "SHAREPOINT_SITE".
+
+    Returns:
+        None
+
+    Attributes:
+        cred (HttpNtlmAuth): The authentication credentials for SharePoint, generated from secrets.
+        site (shareplum.Site): The SharePoint site.
+        site_url (str): The URL of the SharePoint site.
+        deliverables_list (shareplum.List): An object allowing interaction with the deliverables library
+                                            (https://shareplum.readthedocs.io/en/latest/objects.html#list)
+
+    """
+
     def __init__(self, secrets: dict) -> Site:
+        """
+        Initializes a new instance of the EurokinSharePoint class.
+
+        Args:
+            secrets (dict): A dictionary containing the secrets required for authentication.
+                It must contain the keys "USERNAME", "PASSWORD", and "SHAREPOINT_SITE".
+
+        Returns:
+            EurokinSharePoint: A new instance of the EurokinSharePoint class.
+
+        Raises:
+            KeyError: If the secrets dictionary does not contain the required keys.
+
+        """
         if {"USERNAME", "PASSWORD", "SHAREPOINT_SITE"} <= set(secrets):
             USERNAME = secrets["USERNAME"]
             PASSWORD = secrets["PASSWORD"]
@@ -26,27 +60,68 @@ class EurokinSharePoint:
         self.deliverables_list = None
         return None
 
-    def get_deliverables_list(self) -> list:
+    def get_deliverables_list(self) -> List[Dict]:
+        """
+        Retrieves the list of deliverables from SharePoint.
+
+        Returns:
+            list: a Python list of dicts, each representing a deliverable.
+
+        """
         if self.deliverables_list is None:
             self.deliverables_list = self.site.List("Deliverables_list")
             logging.info("Retrieved current deliverables list from " + self.site_url)
         return self.deliverables_list.GetListItems()
 
-    def get_deliverables_name_list(self) -> list:
+    def get_deliverables_name_list(self) -> List[str]:
+        """
+        Retrieves the list of deliverable names from SharePoint.
+
+        Returns:
+            list: The list of deliverable names.
+
+        """
         deliverables_list = self.get_deliverables_list()
         deliverables_name_list = [d["Name"] for d in deliverables_list]
         return deliverables_name_list
 
-    def get_site_lists(self):
+    def get_site_lists(self) -> ShareplumList:
+        """
+        Retrieves the lists available in the SharePoint site.
+
+        Returns:
+            None, popu
+
+        """
         return self.site.GetListCollection()
 
     def get_deliverable_path(self, id: int):
+        """
+        Retrieves the path of a deliverable with the specified ID.
+
+        Args:
+            id (int): The ID of the deliverable.
+
+        Returns:
+            str: The path of the deliverable.
+
+        """
         deliverables_list = self.get_deliverables_list()
         return (
             self.site_url + deliverables_list[id]["URL Path"].split("misc/eurokin")[1]
         )
 
-    def get_ids_from_names(self, list_of_names: list) -> list:
+    def get_ids_from_names(self, list_of_names: List) -> List[int]:
+        """
+        Retrieves the IDs of deliverables with the specified names.
+
+        Args:
+            list_of_names (list): A list of deliverable names.
+
+        Returns:
+            list: The IDs of the deliverables.
+
+        """
         deliverables_list = self.get_deliverables_list()
         ids = []
         for id, deliverable in enumerate(deliverables_list):
@@ -54,11 +129,33 @@ class EurokinSharePoint:
                 ids.append(id)
         return ids
 
-    def request_deliverable(self, id: int):
+    def request_deliverable(self, id: int) -> requests.Response:
+        """
+        Requests a deliverable with the specified ID.
+
+        Args:
+            id (int): The ID of the deliverable.
+
+        Returns:
+            resquests.Response: The requested deliverable.
+
+        """
         url = self.get_deliverable_path(id)
         return requests.get(url=url, auth=self.cred)
 
     def download_deliverable(self, id: int, output_dir: Path = None):
+        """
+        Downloads a deliverable with the specified ID and writes to output Path
+
+        Args:
+            id (int): The ID of the deliverable.
+            output_dir (Path, optional): The output directory for the downloaded deliverable.
+                If not specified, the deliverable will be saved in the current directory.
+
+        Returns:
+            None
+
+        """
         deliverables_list = self.get_deliverables_list()
         file_name = deliverables_list[id]["Name"]
         deliverable = self.request_deliverable(id)
@@ -78,21 +175,46 @@ class EurokinSharePoint:
     def transfer_to_azure(
         self, url: str, name: str, session: requests.Session, blob_storage: AzureBlob
     ):
+        """
+        Transfers a deliverable to Azure Blob Storage.
+
+        Args:
+            url (str): The URL of the deliverable.
+            name (str): The name of the deliverable.
+            session (requests.Session): The session for making HTTP requests.
+            blob_storage (AzureBlob): The Azure Blob Storage instance.
+
+        Returns:
+            list: A list containing the name of the deliverable and the transfer status.
+
+        """
         try:
             response = session.get(url=url, auth=self.cred)
             content = response.content
-        except:
-            logging.error("Could not retrieve " + name)
+        except Exception as e:
+            logging.error(f"Could not retrieve {name}: {e}")
             return [name, "Sharepoint failure"]
         try:
             blob_storage.upload_content(name=name, content=content)
-        except:
-            logging.error("Unable to upload " + name + " to Azure")
+        except Exception as e:
+            logging.error(f"Unable to upload {name} to Azure: {e}")
             return [name, "Azure failure"]
+        logging.info(f"Uploaded {name} to Azure")
         return [name, "Success"]
 
     # Useful reference: https://medium.com/@angry_programmer/fast-request-using-asyncio-with-ntlm-in-python-eecf2981e9c0
     async def transfer_multiple(self, ids: list, blob_storage: AzureBlob):
+        """
+        Transfers multiple deliverables to Azure Blob Storage asynchronously.
+
+        Args:
+            ids (list): A list of deliverable IDs.
+            blob_storage (AzureBlob): The Azure Blob Storage instance.
+
+        Returns:
+            list: A list containing the names of the deliverables and their transfer statuses.
+
+        """
         loop = asyncio.get_event_loop()
 
         with requests.Session() as session:
@@ -117,6 +239,16 @@ class EurokinSharePoint:
             return results
 
     def update_azure(self, azure_blob: AzureBlob):
+        """
+        Updates Azure Blob Storage with the latest deliverables from SharePoint.
+
+        Args:
+            azure_blob (AzureBlob): The Azure Blob Storage instance.
+
+        Returns:
+            None
+
+        """
         deliverables = self.get_deliverables_name_list()
         already_transferred = azure_blob.get_uploaded_deliverables()
         to_be_transferred = list(set(deliverables) - set(already_transferred))
@@ -152,9 +284,7 @@ def main():
     azure_secrets = secrets["azure"]
     eurokin_azure = AzureBlob(secrets=azure_secrets)
 
-    asyncio.new_event_loop().run_until_complete(
-        eurokin.transfer_multiple(ids=ids, blob_storage=eurokin_azure)
-    )
+    eurokin.transfer_multiple(ids=ids, blob_storage=eurokin_azure)
 
 
 if __name__ == "__main__":
