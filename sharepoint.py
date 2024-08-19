@@ -10,6 +10,8 @@ import requests
 import json
 import logging
 
+logger = logging.getLogger(__name__)
+
 
 class EurokinSharePoint:
     """
@@ -70,7 +72,7 @@ class EurokinSharePoint:
         """
         if self.deliverables_list is None:
             self.deliverables_list = self.site.List("Deliverables_list")
-            logging.info("Retrieved current deliverables list from " + self.site_url)
+            logger.info("Retrieved current deliverables list from " + self.site_url)
         return self.deliverables_list.GetListItems()
 
     def get_deliverables_name_list(self) -> List[str]:
@@ -192,14 +194,14 @@ class EurokinSharePoint:
             response = session.get(url=url, auth=self.cred)
             content = response.content
         except Exception as e:
-            logging.error(f"Could not retrieve {name}: {e}")
+            logger.error(f"Could not retrieve {name}: {e}")
             return [name, "Sharepoint failure"]
         try:
             blob_storage.upload_content(name=name, content=content)
         except Exception as e:
-            logging.error(f"Unable to upload {name} to Azure: {e}")
+            logger.error(f"Unable to upload {name} to Azure: {e}")
             return [name, "Azure failure"]
-        logging.info(f"Uploaded {name} to Azure")
+        logger.info(f"Uploaded {name} to Azure")
         return [name, "Success"]
 
     # Useful reference: https://medium.com/@angry_programmer/fast-request-using-asyncio-with-ntlm-in-python-eecf2981e9c0
