@@ -121,6 +121,26 @@ class AzureBlob:
         self.get_deliverables_container()
         return [name for name in self.deliverables.list_blob_names()]
 
+    def get_blobs_sizes(self):
+        """
+        Gets the list of uploaded deliverables from the deliverables container.
+
+        Returns:
+            List[dict]: A dict of blob names and sizes.
+        """
+        self.get_deliverables_container()
+        return {blob.name: blob.size for blob in self.deliverables.list_blobs()}
+
+    def get_md5s(self):
+        self.get_deliverables_container()
+        blobs = {
+            blob.name: blob.get_blob_client() for blob in self.deliverables.list_blobs()
+        }
+        return {
+            name: blob.get_blob_properties().metadata["md5"]
+            for name, blob in blobs.items()
+        }
+
 
 if __name__ == "__main__":
     cwd = Path().cwd()
@@ -133,5 +153,6 @@ if __name__ == "__main__":
     eurokin_azure = AzureBlob(azure_secrets)
 
     transferred_items = eurokin_azure.get_uploaded_deliverables()
-
+    size = eurokin_azure.get_blobs_sizes()
+    md5s = eurokin_azure.get_md5s()
     assert False
