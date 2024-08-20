@@ -1,5 +1,5 @@
 from shareplum import Site
-from shareplum import List as ShareplumList
+from shareplum import list as ShareplumList
 from shareplum.site import Version
 from requests_ntlm import HttpNtlmAuth
 from pathlib import Path
@@ -11,6 +11,7 @@ import json
 import logging
 
 logger = logging.getLogger(__name__)
+logging.basicConfig(filename="eurokin.log", encoding="utf-8", level=logging.DEBUG)
 
 
 class EurokinSharePoint:
@@ -87,7 +88,7 @@ class EurokinSharePoint:
         deliverables_name_list = [d["Name"] for d in deliverables_list]
         return deliverables_name_list
 
-    def get_site_lists(self) -> ShareplumList:
+    def get_site_lists(self) -> List:
         """
         Retrieves the lists available in the SharePoint site.
 
@@ -255,6 +256,7 @@ class EurokinSharePoint:
         already_transferred = azure_blob.get_uploaded_deliverables()
         to_be_transferred = list(set(deliverables) - set(already_transferred))
         ids = self.get_ids_from_names(to_be_transferred)
+        logging.info(f"{len(ids)} files found to transfer")
         asyncio.new_event_loop().run_until_complete(
             self.transfer_multiple(ids=ids, blob_storage=azure_blob)
         )
@@ -286,7 +288,7 @@ def main():
     azure_secrets = secrets["azure"]
     eurokin_azure = AzureBlob(secrets=azure_secrets)
 
-    eurokin.transfer_multiple(ids=ids, blob_storage=eurokin_azure)
+    eurokin.update_azure(azure_blob=eurokin_azure)
 
 
 if __name__ == "__main__":
